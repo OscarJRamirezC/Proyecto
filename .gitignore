@@ -1,0 +1,7 @@
+# Root workspace ignores
+.venv/
+.vscode/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

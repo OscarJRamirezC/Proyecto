@@ -1,0 +1,17 @@
+# Exclude local/dev artifacts that can break tar upload
+.venv/
+.vscode/
+
+# Exclude temporary files at workspace root
+_tmp*/
+*.log
+
+# Exclude heavy/unneeded files inside app folder
+ProyectoFinal/node_modules/
+ProyectoFinal/.expo/
+ProyectoFinal/.vscode/
+ProyectoFinal/*.docx
+ProyectoFinal/~$*.docx
+ProyectoFinal/_tmp*/
+ProyectoFinal/Imagenes/
+ProyectoFinal/*.py

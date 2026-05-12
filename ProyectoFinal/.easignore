@@ -1,0 +1,32 @@
+# Exclude large/unnecessary files from EAS build upload
+
+# Documentos Word (no necesarios para la app)
+*.docx
+~$*.docx
+
+# Carpetas temporales y de extracción
+_tmp_docx_extract/
+_tmp_docx_extract2/
+_tmp_anexo_media_restore/
+
+# Scripts Python (generación de documentos)
+*.py
+
+# Archivos JSON no utilizados por la app
+a.json
+cors.json
+
+# Imágenes y recursos del documento académico
+Imagenes/
+
+# Dependencias (EAS las instala en el servidor)
+node_modules/
+
+# Caché de Expo local
+.expo/
+
+# Editor y entorno local
+.vscode/
+
+# Lock file alternativo (solo se necesita package-lock.json o yarn.lock)
+# package-lock.json  # déjalo, ayuda a reproducibilidad
