@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contextos/AuthContext';
@@ -17,7 +18,7 @@ import { getAuthErrorMessage } from '../utils/authErrorMessages';
 
 // Pantalla de inicio de sesion con validaciones de correo y manejo de errores de Auth.
 export default function PantallaAcceso({ navigation }) {
-  const { login } = useAuth();
+  const { login, firebaseStatus } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -57,7 +58,12 @@ export default function PantallaAcceso({ navigation }) {
   const CARD_WIDTH = Dimensions.get('window').width > 420 ? 380 : 320;
 
   return (
-    <View style={styles.outerContainer}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.outerContainer}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.brandContainer}>
         <Image
           source={require('../assets/imagen_2026-03-24_121552217.jpg')}
@@ -88,6 +94,20 @@ export default function PantallaAcceso({ navigation }) {
       <View style={[styles.loginCard, { width: CARD_WIDTH }]}>
         <Text style={styles.title}>Iniciar sesión</Text>
 
+        {!firebaseStatus?.ready ? (
+          <View style={styles.warningBox}>
+            <Ionicons name="warning-outline" size={18} color="#9A6700" />
+            <View style={styles.warningTextWrap}>
+              <Text style={styles.warningTitle}>Firebase no está configurado en este build</Text>
+              <Text style={styles.warningText}>
+                {firebaseStatus?.reason === 'missing-config'
+                  ? 'Faltan las variables EXPO_PUBLIC_FIREBASE_* o no se incluyeron en la compilación.'
+                  : 'Las credenciales de Firebase de esta compilación son inválidas o no están disponibles.'}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <Text style={styles.label}>Correo electrónico</Text>
         <View style={styles.inputRow}>
           <Ionicons name="mail-outline" size={18} color={tema.colors.placeholder} />
@@ -115,7 +135,7 @@ export default function PantallaAcceso({ navigation }) {
           />
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={iniciarSesion} disabled={loading}>
+        <TouchableOpacity style={[styles.button, !firebaseStatus?.ready && styles.buttonDisabled]} onPress={iniciarSesion} disabled={loading || !firebaseStatus?.ready}>
           {loading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
@@ -130,17 +150,19 @@ export default function PantallaAcceso({ navigation }) {
           <Text style={styles.createAccountLink}>Crear cuenta</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: tema.colors.background },
   outerContainer: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     backgroundColor: tema.colors.background,
     justifyContent: 'center',
     paddingHorizontal: 20,
+    paddingVertical: 24,
   },
   brandContainer: {
     alignItems: 'center',
@@ -199,6 +221,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tema.colors.border,
   },
+  warningBox: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#FFF6D8',
+    borderWidth: 1,
+    borderColor: '#E7C86B',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  warningTextWrap: { flex: 1 },
+  warningTitle: {
+    color: '#7A5200',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  warningText: {
+    color: '#7A5200',
+    fontSize: 12,
+    lineHeight: 18,
+  },
   title: {
     color: tema.colors.text,
     fontSize: 20,
@@ -235,6 +279,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
     backgroundColor: tema.colors.accent,
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
   buttonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   buttonText: {

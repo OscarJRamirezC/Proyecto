@@ -22,6 +22,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.OscarRamirez.RespawnChat"
     },
     "web": {
@@ -33,8 +34,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d81d41a5-af0d-4123-9de4-8dcbf584f761"
+        "projectId": "a491e774-2606-451b-afd0-a50a8a633b23"
       }
-    }
+    },
+    "owner": "oscarjramirez"
   }
 }

@@ -13,9 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import tema from '../tema';
 import servicioUsuarios from '../servicios/servicioUsuarios';
 import { getAuthErrorMessage } from '../utils/authErrorMessages';
+import { useAuth } from '../contextos/AuthContext';
 
 // Alta de usuario nuevo con validaciones basicas antes de crear cuenta en Firebase.
 export default function PantallaRegistroUsuario({ navigation }) {
+  const { firebaseStatus } = useAuth();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,7 +87,11 @@ export default function PantallaRegistroUsuario({ navigation }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: tema.colors.background }]}>
+    <ScrollView
+      contentContainerStyle={[styles.container, { backgroundColor: tema.colors.background }]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.header}>
         <View style={styles.headerIcon}>
           <Ionicons name="person-add-outline" size={20} color="#fff" />
@@ -105,6 +111,18 @@ export default function PantallaRegistroUsuario({ navigation }) {
       </View>
 
       <View style={styles.card}>
+        {!firebaseStatus?.ready ? (
+          <View style={styles.warningBox}>
+            <Ionicons name="warning-outline" size={18} color="#9A6700" />
+            <View style={styles.warningTextWrap}>
+              <Text style={styles.warningTitle}>Registro deshabilitado temporalmente</Text>
+              <Text style={styles.warningText}>
+                Esta compilación no tiene credenciales Firebase válidas. Configura las variables EXPO_PUBLIC_FIREBASE_* y vuelve a generar la app.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <Text style={styles.label}>Nombre de usuario</Text>
         <View style={styles.inputRow}>
           <Ionicons name="person-outline" size={18} color={tema.colors.placeholder} />
@@ -158,7 +176,7 @@ export default function PantallaRegistroUsuario({ navigation }) {
           />
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={registrar} disabled={loading}>
+        <TouchableOpacity style={[styles.button, !firebaseStatus?.ready && styles.buttonDisabled]} onPress={registrar} disabled={loading || !firebaseStatus?.ready}>
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
@@ -217,6 +235,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tema.colors.border,
   },
+  warningBox: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#FFF6D8',
+    borderWidth: 1,
+    borderColor: '#E7C86B',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  warningTextWrap: { flex: 1 },
+  warningTitle: {
+    color: '#7A5200',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  warningText: {
+    color: '#7A5200',
+    fontSize: 12,
+    lineHeight: 18,
+  },
   label: {
     color: tema.colors.textSecondary,
     fontSize: 13,
@@ -243,6 +283,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
   },
+  buttonDisabled: { opacity: 0.55 },
   buttonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   buttonText: { color: '#fff', fontWeight: '700' },
   footerLink: { marginTop: 14 },

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { auth, database } from "../config/firebaseClient";
+import { auth, database, firebaseStatus } from "../config/firebaseClient";
 
 const AuthContext = createContext();
 
@@ -8,12 +8,24 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const authClient = auth?.();
+
+    if (!authClient?.onAuthStateChanged) {
+      console.warn("Firebase Auth no está disponible; se omite la sesión persistente.");
+      setUser(null);
+      setLoading(false);
+      return undefined;
+    }
+
     // Mantiene sesion sincronizada con Firebase Auth y carga perfil extendido.
-    const unsubscribe = auth().onAuthStateChanged(async (usuarioFirebase) => {
+    const unsubscribe = authClient.onAuthStateChanged(async (usuarioFirebase) => {
       try {
         if (usuarioFirebase) {
-          const snap = await database().ref(`usuarios/${usuarioFirebase.uid}`).once("value");
-          const data = snap.val() || {};
+          const databaseClient = database?.();
+          const snap = databaseClient
+            ? await databaseClient.ref(`usuarios/${usuarioFirebase.uid}`).once("value")
+            : null;
+          const data = snap?.val() || {};
 
           setUser({
             uid: usuarioFirebase.uid,
@@ -44,14 +56,27 @@ export function AuthProvider({ children }) {
 
   // Login tradicional con correo y contrasena.
   const login = async (email, password) => {
-    await auth().signInWithEmailAndPassword(email, password);
+    const authClient = auth?.();
+
+    if (!authClient?.signInWithEmailAndPassword) {
+      throw new Error("Firebase Auth no está configurado.");
+    }
+
+    await authClient.signInWithEmailAndPassword(email, password);
   };
 
   // Cierra sesion en Firebase y limpia estado local via listener.
   const logout = async () => {
     try {
       console.log("Cerrando sesión...");
-      await auth().signOut();
+      const authClient = auth?.();
+
+      if (!authClient?.signOut) {
+        setUser(null);
+        return;
+      }
+
+      await authClient.signOut();
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
       throw error;
@@ -59,7 +84,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, firebaseStatus }}>
       {children}
     </AuthContext.Provider>
   );

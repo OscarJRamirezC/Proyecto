@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -138,26 +138,32 @@ function Navigation() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator>
-        {!user ? (
-          <>
-            <Stack.Screen name="Acceso" component={PantallaAcceso} options={{ headerShown: false }} />
-            <Stack.Screen name="RegistroUsuario" component={PantallaRegistroUsuario} options={{ headerShown: false }} />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="MainTabs" component={Tabs} options={{ headerShown: false }} />
-            <Stack.Screen name="AgregarInventario" component={PantallaAgregarInventario} options={{ title: 'Agregar alimento' }} />
-            <Stack.Screen name="DetalleInventario" component={PantallaDetalleInventario} options={{ title: 'Detalle del alimento' }} />
-            <Stack.Screen name="DetalleReceta" component={PantallaDetalleReceta} options={{ title: 'Detalle de receta' }} />
-            <Stack.Screen name="AlertasInventario" component={PantallaAlertasInventario} options={{ title: 'Alertas y notificaciones' }} />
-          </>
-        )}
-      </Stack.Navigator>
+    <KeyboardAvoidingView
+      style={styles.appContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+    >
+      <NavigationContainer>
+        <Stack.Navigator>
+          {!user ? (
+            <>
+              <Stack.Screen name="Acceso" component={PantallaAcceso} options={{ headerShown: false }} />
+              <Stack.Screen name="RegistroUsuario" component={PantallaRegistroUsuario} options={{ headerShown: false }} />
+            </>
+          ) : (
+            <>
+              <Stack.Screen name="MainTabs" component={Tabs} options={{ headerShown: false }} />
+              <Stack.Screen name="AgregarInventario" component={PantallaAgregarInventario} options={{ title: 'Agregar alimento' }} />
+              <Stack.Screen name="DetalleInventario" component={PantallaDetalleInventario} options={{ title: 'Detalle del alimento' }} />
+              <Stack.Screen name="DetalleReceta" component={PantallaDetalleReceta} options={{ title: 'Detalle de receta' }} />
+              <Stack.Screen name="AlertasInventario" component={PantallaAlertasInventario} options={{ title: 'Alertas y notificaciones' }} />
+            </>
+          )}
+        </Stack.Navigator>
 
-      <StatusBar style="dark" />
-    </NavigationContainer>
+        <StatusBar style="dark" />
+      </NavigationContainer>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -171,5 +177,6 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  appContainer: { flex: 1 },
   center: { justifyContent: 'center', alignItems: 'center' },
 });

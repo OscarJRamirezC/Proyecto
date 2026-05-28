@@ -1,8 +1,13 @@
-import { database, auth } from "../config/firebaseClient";
+import { database, auth, storage, firebaseStatus } from "../config/firebaseClient";
 import { get, set, ref, remove, update, runTransaction, query, orderByChild, equalTo, push } from "firebase/database";
 
-// Esta clave permite subir imagenes de publicaciones a ImgBB sin dejarla fija en el codigo.
-const IMGBB_API_KEY = process.env?.EXPO_PUBLIC_IMGBB_API_KEY || "";
+function ensureFirebaseStorage(client) {
+  if (client) return client;
+
+  const error = new Error(firebaseStatus?.message || 'Firebase Storage no disponible.');
+  error.code = firebaseStatus?.reason || 'storage/unavailable';
+  throw error;
+}
 
 class PublicacionesService {
 
@@ -68,32 +73,17 @@ class PublicacionesService {
     }
   }
 
-  // Sube imagen base64 a ImgBB y devuelve la URL final.
-  static async subirAImgBB(base64) {
+  // Sube imagen base64 a Firebase Storage y devuelve la URL final.
+  static async subirImagen(base64, usuarioId) {
     try {
-      if (!IMGBB_API_KEY) {
-        throw new Error("Falta EXPO_PUBLIC_IMGBB_API_KEY");
-      }
+      const storageClient = ensureFirebaseStorage(storage?.());
+      const archivo = storageClient.ref(`publicaciones/${usuarioId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`);
 
-      const form = new FormData();
-      form.append("image", base64);
-
-      const res = await fetch(
-        `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
-        { method: "POST", body: form }
-      );
-
-      const data = await res.json();
-
-      if (!data?.data?.url) {
-        console.error("Error ImgBB:", data);
-        throw new Error("Error subiendo imagen");
-      }
-
-      return data.data.url;
+      await archivo.putString(base64, 'base64', { contentType: 'image/jpeg' });
+      return await archivo.getDownloadURL();
 
     } catch (error) {
-      console.error("Error en subirAImgBB:", error);
+      console.error("Error subiendo imagen a Firebase Storage:", error);
       throw error;
     }
   }
@@ -115,7 +105,7 @@ class PublicacionesService {
       if (datos.imagenes && datos.imagenes.length > 0) {
         for (const img of datos.imagenes) {
           try {
-            const url = await this.subirAImgBB(img);
+            const url = await this.subirImagen(img, usuario.uid);
             imagenesURLs.push(url);
           } catch (err) {
             console.warn("Error subiendo imagen:", err);

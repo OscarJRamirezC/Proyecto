@@ -44,7 +44,7 @@ export default function PantallaInventario({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
 
-  const categorias = ['Todos', 'Lácteos', 'Carnes', 'Frutas', 'Verduras', 'Granos', 'Bebidas'];
+  const categorias = ['Todos', 'Lácteos', 'Huevos', 'Carnes', 'Frutas', 'Verduras', 'Granos', 'Bebidas'];
   const estados = ['Todos', 'Urgente', 'Por vencer', 'Fresco', 'Vencido', 'Sin fecha'];
 
   useEffect(() => {
@@ -245,7 +245,11 @@ export default function PantallaInventario({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.listContent}>
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color={tema.colors.accent} />

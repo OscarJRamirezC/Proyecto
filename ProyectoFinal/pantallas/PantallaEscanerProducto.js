@@ -87,7 +87,7 @@ export default function PantallaEscanerProducto() {
   const [notas, setNotas] = useState('');
   const [textoDetectado, setTextoDetectado] = useState('');
 
-  const categorias = ['Lácteos', 'Carnes', 'Frutas', 'Verduras', 'Granos', 'Bebidas'];
+  const categorias = ['Lácteos', 'Huevos', 'Carnes', 'Frutas', 'Verduras', 'Granos', 'Bebidas'];
 
   useEffect(() => {
     if (!user?.uid) return undefined;
@@ -237,7 +237,12 @@ export default function PantallaEscanerProducto() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: tema.colors.background }]} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: tema.colors.background }]}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.heroCard}>
         <Image
           source={require('../assets/imagen_2026-03-24_122325372.jpg')}

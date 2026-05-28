@@ -28,7 +28,7 @@ export default function PantallaAgregarInventario({ navigation }) {
   const [notas, setNotas] = useState('');
   const [guardando, setGuardando] = useState(false);
 
-  const categorias = ['Lácteos', 'Carnes', 'Frutas', 'Verduras', 'Granos', 'Bebidas'];
+  const categorias = ['Lácteos', 'Huevos', 'Carnes', 'Frutas', 'Verduras', 'Granos', 'Bebidas'];
 
   const parseFecha = (valor) => {
     if (!valor) return null;
@@ -100,7 +100,12 @@ export default function PantallaAgregarInventario({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.heroCard}>
         <View style={styles.heroHeader}>
           <View style={styles.heroIcon}>
@@ -226,9 +231,12 @@ export default function PantallaAgregarInventario({ navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
     backgroundColor: tema.colors.background,
     flex: 1,
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 120,
   },
   heroCard: {
     backgroundColor: tema.colors.card,

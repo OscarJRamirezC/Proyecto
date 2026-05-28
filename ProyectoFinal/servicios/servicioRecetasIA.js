@@ -795,7 +795,6 @@ async function buscarRecetasGemini(items, perfil = {}, maxRecetas = 2) {
   const modelos = Array.from(new Set([
     config.GEMINI_MODEL,
     'gemini-2.5-flash',
-    'gemini-3.1-flash-lite-preview',
     'gemini-2.5-flash-lite',
     'gemini-flash-latest',
   ].filter(Boolean)));

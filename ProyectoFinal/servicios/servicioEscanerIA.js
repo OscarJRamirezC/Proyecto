@@ -1,6 +1,8 @@
 import axios from 'axios';
 import config from '../config';
 
+const MAX_OCR_BASE64_LENGTH = 1_500_000;
+
 // Normaliza texto OCR para mejorar deteccion por patrones.
 function normalizar(texto) {
   return (texto || '')
@@ -123,6 +125,30 @@ function capitalizarFrase(valor = '') {
     .trim();
 }
 
+function normalizarNombreDetectado(nombre = '') {
+  const valor = capitalizarFrase(normalizar(nombre));
+  if (!valor) return '';
+
+  const reemplazos = [
+    [/^tomates?$/i, 'Tomate'],
+    [/^cebollas?$/i, 'Cebolla'],
+    [/^papas?$/i, 'Papa'],
+    [/^zanahorias?$/i, 'Zanahoria'],
+    [/^manzanas?$/i, 'Manzana'],
+    [/^bananas?$/i, 'Banana'],
+    [/^platanos?$/i, 'Platano'],
+    [/^naranjas?$/i, 'Naranja'],
+    [/^pepinos?$/i, 'Pepino'],
+    [/^huevos?$/i, 'Huevos'],
+  ];
+
+  for (const [regex, salida] of reemplazos) {
+    if (regex.test(valor)) return salida;
+  }
+
+  return valor;
+}
+
 function detectarProductoPorPatron(textoNormalizado) {
   const esLeche = /\bleche\b/.test(textoNormalizado);
   if (esLeche) {
@@ -211,6 +237,7 @@ function categoriaPorTexto(producto = '') {
   const p = normalizar(producto);
   if (!p) return '';
   if (/leche|queso|yogur|mantequilla/.test(p)) return 'Lácteos';
+  if (/huevo/.test(p)) return 'Huevos';
   if (/pollo|carne|res|cerdo|atun|pescado/.test(p)) return 'Carnes';
   if (/manzana|banana|platano|fresa|uva|pera|naranja|tomate/.test(p)) return 'Frutas';
   if (/lechuga|zanahoria|papa|cebolla|brocoli|pepino/.test(p)) return 'Verduras';
@@ -234,8 +261,8 @@ function estimarDiasVidaUtil(nombre = '', categoria = '') {
   if (/leche/.test(n)) return { dias: 7, criterio: 'lacteo-refrigerado' };
   if (/yogur|yogurt/.test(n)) return { dias: 14, criterio: 'lacteo-fermentado' };
   if (/queso/.test(n)) return { dias: 21, criterio: 'lacteo-solido' };
+  if (/huevo/.test(n) || c === 'huevos') return { dias: 14, criterio: 'huevos' };
   if (/pollo|carne|res|cerdo|pescado|atun/.test(n)) return { dias: 2, criterio: 'proteina-fresca' };
-  if (/huevo/.test(n)) return { dias: 14, criterio: 'huevos' };
   if (/fruta|manzana|banana|platano|pera|uva|naranja|tomate/.test(n) || c === 'frutas') return { dias: 5, criterio: 'fruta-fresca' };
   if (/verdura|lechuga|zanahoria|cebolla|brocoli|pepino|papa/.test(n) || c === 'verduras') return { dias: 7, criterio: 'verdura-fresca' };
   if (/arroz|avena|frijol|lenteja|garbanzo|grano/.test(n) || c === 'granos') return { dias: 180, criterio: 'seco-despensa' };
@@ -258,6 +285,165 @@ function estimarFechaVencimiento(nombre = '', categoria = '') {
   };
 }
 
+function parseJsonSeguro(texto = '') {
+  if (!texto) return null;
+  try {
+    return JSON.parse(texto);
+  } catch {
+    const bloque = texto.match(/\{[\s\S]*\}/);
+    if (!bloque?.[0]) return null;
+    try {
+      return JSON.parse(bloque[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function normalizarCategoriaDetectada(categoria = '', nombre = '') {
+  const valor = normalizar(categoria);
+  if (/lacteo/.test(valor)) return 'Lácteos';
+  if (/huevo/.test(valor)) return 'Huevos';
+  if (/carne|proteina|pollo|pescado|atun/.test(valor)) return 'Carnes';
+  if (/fruta/.test(valor)) return 'Frutas';
+  if (/verdura|vegetal|hortaliza/.test(valor)) return 'Verduras';
+  if (/grano|cereal|legumbre|arroz|avena/.test(valor)) return 'Granos';
+  if (/bebida|jugo|agua|gaseosa/.test(valor)) return 'Bebidas';
+  return categoriaPorTexto(nombre);
+}
+
+function normalizarCantidadDetectada(cantidad = '', nombre = '') {
+  const valor = String(cantidad || '').trim();
+  if (!valor) {
+    const nombreNormal = normalizar(nombre);
+    if (/(tomate|cebolla|papa|zanahoria|manzana|banana|platano|naranja|pepino|aguacate|palta|limon|huevo|pera|ajo)/.test(nombreNormal)) {
+      return '1 und';
+    }
+    return '';
+  }
+
+  const normal = normalizar(valor);
+  const huevosDocena = normal.match(/(\d+|una|un)\s*(docena|docenas)/);
+  if (huevosDocena && /huevo/.test(normalizar(nombre))) {
+    const factor = /^\d+$/.test(huevosDocena[1]) ? parseInt(huevosDocena[1], 10) : 1;
+    return `${factor * 12} und`;
+  }
+
+  const unidades = normal.match(/(\d+[\.,]?\d*)\s*(und|u|unidad|unidades|huevo|huevos|egg|eggs)\b/);
+  if (unidades) {
+    return `${unidades[1].replace(',', '.')} und`;
+  }
+
+  const medida = normal.match(/(\d+[\.,]?\d*)\s*(kg|g|gr|l|lt|ml)\b/);
+  if (medida) {
+    const unidad = medida[2].toLowerCase() === 'lt' ? 'l' : medida[2].toLowerCase();
+    return `${medida[1].replace(',', '.')} ${unidad}`;
+  }
+
+  return valor;
+}
+
+function limpiarBase64(base64Image = '') {
+  const valor = String(base64Image || '').trim();
+  if (!valor) return '';
+  const partes = valor.split(',');
+  return valor.startsWith('data:') && partes.length > 1 ? partes[1] : valor;
+}
+
+async function analizarImagenConGemini(base64Image, textoOCR = '') {
+  if (config.GEMINI_ENABLED === false) return null;
+
+  const key = config.GEMINI_API_KEY;
+  if (!key) return null;
+
+  const imagen = limpiarBase64(base64Image);
+  if (!imagen) return null;
+
+  const base = config.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/models';
+  const modelos = Array.from(new Set([
+    config.GEMINI_MODEL,
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-latest',
+  ].filter(Boolean)));
+
+  const prompt = [
+    'Analiza esta foto de un alimento o producto de cocina y devuelve SOLO JSON válido.',
+    'No devuelvas markdown ni texto adicional.',
+    'Identifica el producto principal visible aunque no exista texto en la imagen.',
+    'Si la fecha de vencimiento no es visible, deja fecha como cadena vacía.',
+    'Si la cantidad visible se puede inferir con alta confianza, devuélvela; si es una sola pieza usa "1 und"; si hay varias piezas iguales estima el conteo en und; si no, usa una presentación breve.',
+    'Formato exacto:',
+    '{"nombre":"","categoria":"","cantidad":"","fecha":"","presentacion":"","marca":"","descripcionVisual":""}',
+    textoOCR ? `Texto OCR parcial disponible: ${textoOCR}` : 'No hay texto OCR útil disponible.',
+    'Usa categorías de este catálogo: Lácteos, Huevos, Carnes, Frutas, Verduras, Granos, Bebidas.',
+    'Ejemplos válidos: tomate -> nombre "Tomate", categoría "Frutas" o "Verduras" según uso, cantidad "1 und"; cebolla -> nombre "Cebolla", categoría "Verduras", cantidad "1 und"; huevos en bandeja -> nombre "Huevos", categoría "Huevos", cantidad "30 und" o presentación "1 bandeja"; leche -> nombre "Leche", categoría "Lácteos", cantidad "1 l" si se aprecia; arroz en bolsa -> nombre "Arroz", categoría "Granos".',
+    'Prioriza un nombre simple y usable en inventario, no descripciones largas.',
+  ].join(' ');
+
+  for (const modelo of modelos) {
+    const endpoint = `${base}/${modelo}:generateContent?key=${encodeURIComponent(key)}`;
+    try {
+      const { data } = await axios.post(
+        endpoint,
+        {
+          contents: [{
+            role: 'user',
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: imagen,
+                },
+              },
+            ],
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 500,
+            responseMimeType: 'application/json',
+          },
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 20000,
+        }
+      );
+
+      const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const parsed = parseJsonSeguro(content);
+      if (!parsed || typeof parsed !== 'object') continue;
+
+      const nombre = normalizarNombreDetectado(parsed.nombre || parsed.producto || parsed.objeto || '');
+      const categoria = normalizarCategoriaDetectada(parsed.categoria || '', nombre);
+      const cantidad = normalizarCantidadDetectada(parsed.cantidad || '', nombre);
+      const fecha = detectarFecha(String(parsed.fecha || parsed.fechaVencimiento || '').trim());
+      const presentacion = String(parsed.presentacion || '').trim();
+      const marca = String(parsed.marca || '').trim();
+      const descripcionVisual = String(parsed.descripcionVisual || parsed.observaciones || '').trim();
+
+      if (nombre || categoria || cantidad || presentacion) {
+        return {
+          nombre,
+          categoria,
+          cantidad,
+          fecha,
+          presentacion,
+          marca,
+          descripcionVisual,
+        };
+      }
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 400 || status === 404) continue;
+      if (status === 401 || status === 403 || status === 429 || status === 503) return null;
+    }
+  }
+
+  return null;
+}
+
 class ServicioEscanerIA {
   // Hace OCR de la imagen y devuelve campos listos para precargar inventario.
   static async analizarImagenBase64(base64Image) {
@@ -265,37 +451,79 @@ class ServicioEscanerIA {
       throw new Error('Imagen vacía para análisis OCR.');
     }
 
+    const imagenVision = limpiarBase64(base64Image);
+    const puedeUsarOcr = imagenVision.length > 0 && imagenVision.length <= MAX_OCR_BASE64_LENGTH;
+    const imagenOcr = puedeUsarOcr
+      ? (base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`)
+      : '';
+
     const key = config.OCR_SPACE_API_KEY;
+    const ocrEngine = String(config.OCR_SPACE_ENGINE || '2');
+    const language = config.OCR_SPACE_LANGUAGE || (ocrEngine === '1' ? 'spa' : 'auto');
     const payload = new URLSearchParams();
-    payload.append('apikey', key || 'helloworld');
-    payload.append('language', 'spa');
+    payload.append('language', language);
     payload.append('isOverlayRequired', 'false');
-    payload.append('base64Image', base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`);
+    payload.append('detectOrientation', 'true');
+    payload.append('scale', 'true');
+    payload.append('OCREngine', ocrEngine);
+    let data = null;
+    let texto = '';
+    if (puedeUsarOcr) {
+      payload.append('base64Image', imagenOcr);
 
-    const { data } = await axios.post(config.OCR_SPACE_BASE_URL, payload.toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 20000,
-    });
+      try {
+        const respuesta = await axios.post(config.OCR_SPACE_BASE_URL, payload.toString(), {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            apikey: key || 'helloworld',
+          },
+          timeout: 20000,
+        });
 
-    if (data?.IsErroredOnProcessing) {
-      const mensajeApi = Array.isArray(data?.ErrorMessage)
-        ? data.ErrorMessage.join(' ')
-        : (data?.ErrorMessage || 'No se pudo procesar la imagen.');
-      throw new Error(mensajeApi);
+        data = respuesta.data;
+
+        if (data?.IsErroredOnProcessing) {
+          const mensajeApi = Array.isArray(data?.ErrorMessage)
+            ? data.ErrorMessage.join(' ')
+            : (data?.ErrorMessage || 'No se pudo procesar la imagen.');
+          throw new Error(mensajeApi);
+        }
+
+        texto = data?.ParsedResults?.[0]?.ParsedText || '';
+      } catch (error) {
+        const status = error?.response?.status;
+        if (status !== 413) {
+          throw error;
+        }
+      }
     }
 
-    const texto = data?.ParsedResults?.[0]?.ParsedText || '';
+    const resultadoOcr = {
+      textoDetectado: texto,
+      nombre: detectarProducto(texto),
+      fecha: detectarFecha(texto),
+      categoria: '',
+      cantidad: detectarCantidad(texto),
+      presentacion: detectarPresentacion(texto),
+      marca: '',
+    };
 
-    const fecha = detectarFecha(texto);
-    const nombre = detectarProducto(texto);
-    const categoria = categoriaPorTexto(nombre);
-    const cantidad = detectarCantidad(texto);
-    const presentacion = detectarPresentacion(texto);
-    const marca = detectarMarca(texto, nombre);
+    resultadoOcr.categoria = categoriaPorTexto(resultadoOcr.nombre);
+    resultadoOcr.marca = detectarMarca(texto, resultadoOcr.nombre);
+
+    const necesitaVision = !resultadoOcr.nombre || !resultadoOcr.categoria || !resultadoOcr.cantidad || !resultadoOcr.presentacion;
+  const resultadoGemini = necesitaVision ? await analizarImagenConGemini(imagenVision, texto) : null;
+
+    const nombre = resultadoOcr.nombre || resultadoGemini?.nombre || '';
+    const categoria = resultadoOcr.categoria || resultadoGemini?.categoria || categoriaPorTexto(nombre);
+    const cantidad = resultadoOcr.cantidad || resultadoGemini?.cantidad || '';
+    const fecha = resultadoOcr.fecha || resultadoGemini?.fecha || '';
+    const presentacion = resultadoOcr.presentacion || resultadoGemini?.presentacion || '';
+    const marca = resultadoOcr.marca || resultadoGemini?.marca || '';
     const vencimientoEstimado = !fecha ? estimarFechaVencimiento(nombre, categoria) : null;
 
     const resultado = {
-      textoDetectado: texto,
+      textoDetectado: texto || resultadoGemini?.descripcionVisual || '',
       nombre,
       fecha,
       fechaEstimada: vencimientoEstimado?.fechaEstimada || '',
@@ -306,7 +534,9 @@ class ServicioEscanerIA {
       cantidad,
       presentacion,
       marca,
-      confianza: data?.ParsedResults?.[0]?.TextOverlay?.HasOverlay ? 'alta' : 'media',
+      confianza: texto
+        ? (data?.ParsedResults?.[0]?.TextOverlay?.HasOverlay ? 'alta' : 'media')
+        : (resultadoGemini ? 'media' : 'baja'),
     };
 
     const sinDatosUtiles = !resultado.nombre && !resultado.fecha && !resultado.fechaEstimada && !resultado.cantidad && !resultado.presentacion;

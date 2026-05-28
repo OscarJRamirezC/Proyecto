@@ -3,70 +3,87 @@ let auth = null;
 let database = null;
 let firestore = null;
 let storage = null;
-const getEnv = (name, fallback = '') => process.env?.[name] ?? fallback;
 
-const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
+const firebaseStatus = {
+  ready: false,
+  reason: 'not-initialized',
+  message: 'Firebase no ha sido inicializado.',
+};
 
-if (!isWeb) {
+const withFirebaseGuard = (label, factory) => () => {
   try {
-    const rnApp = require('@react-native-firebase/app');
-    const rnAuth = require('@react-native-firebase/auth');
-    const rnDb = require('@react-native-firebase/database');
-    const rnFs = require('@react-native-firebase/firestore');
-    const rnStorage = require('@react-native-firebase/storage');
-
-    app = rnApp.default || rnApp;
-    auth = () => (rnAuth.default || rnAuth)();
-    database = () => (rnDb.default || rnDb)();
-    firestore = () => (rnFs.default || rnFs)();
-    storage = () => (rnStorage.default || rnStorage)();
-
-    console.log('[firebaseClient] Using native react-native-firebase.');
+    return factory();
   } catch (err) {
-    console.warn('[firebaseClient] Native modules unavailable, falling back to web.');
-    app = null;
+    firebaseStatus.ready = false;
+    firebaseStatus.reason = err?.code || `${label.toLowerCase().replace(/\s+/g, '-')}-unavailable`;
+    firebaseStatus.message = err?.message || `No se pudo usar ${label}.`;
+    console.error(`[firebaseClient] ${label} unavailable:`, err);
+    return null;
   }
+};
+
+let firebase = null;
+
+try {
+  const fb = require('firebase/compat/app');
+  require('firebase/compat/auth');
+  require('firebase/compat/database');
+  require('firebase/compat/firestore');
+  require('firebase/compat/storage');
+
+  firebase = fb.default || fb;
+} catch (err) {
+  console.error('[firebaseClient] Failed loading firebase/compat:', err);
 }
-if (!app) {
-  let firebase = null;
 
+// En Expo managed usamos el SDK web/compat para evitar depender de configuracion nativa.
+const firebaseConfig = {
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || '',
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
+  databaseURL: process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL || '',
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || '',
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '',
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || ''
+};
+
+const hasFirebaseConfig = Boolean(
+  firebaseConfig.apiKey &&
+  firebaseConfig.projectId &&
+  firebaseConfig.appId
+);
+
+if (firebase && hasFirebaseConfig) {
   try {
-    const fb = require('firebase/compat/app');
-    require('firebase/compat/auth');
-    require('firebase/compat/database');
-    require('firebase/compat/firestore');
-    require('firebase/compat/storage');
-
-    firebase = fb.default || fb;
-  } catch (err) {
-    console.error('[firebaseClient] Failed loading firebase/compat:', err);
-  }
-
-  // Esta es la conexion principal a Firebase para auth, base de datos y storage.
-  const firebaseConfig = {
-    apiKey: getEnv('EXPO_PUBLIC_FIREBASE_API_KEY'),
-    authDomain: getEnv('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
-    projectId: getEnv('EXPO_PUBLIC_FIREBASE_PROJECT_ID'),
-    storageBucket: getEnv('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
-    messagingSenderId: getEnv('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
-    appId: getEnv('EXPO_PUBLIC_FIREBASE_APP_ID'),
-    measurementId: getEnv('EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID')
-  };
-
-  if (firebase) {
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     }
 
     app = firebase;
-    auth = () => firebase.auth();
-    database = () => firebase.database();
-    firestore = () => firebase.firestore();
-    storage = () => firebase.storage();
+    auth = withFirebaseGuard('Auth', () => firebase.auth());
+    database = withFirebaseGuard('Realtime Database', () => firebase.database());
+    firestore = withFirebaseGuard('Firestore', () => firebase.firestore());
+    storage = withFirebaseGuard('Storage', () => firebase.storage());
 
-    console.log('[firebaseClient] Using firebase/compat (web).');
+    firebaseStatus.ready = true;
+    firebaseStatus.reason = 'ready';
+    firebaseStatus.message = 'Firebase listo.';
+
+    console.log('[firebaseClient] Using firebase/compat.');
+  } catch (err) {
+    firebaseStatus.ready = false;
+    firebaseStatus.reason = err?.code || 'init-failed';
+    firebaseStatus.message = err?.message || 'No se pudo inicializar Firebase.';
+    console.error('[firebaseClient] Failed initializing Firebase:', err);
   }
+} else if (!hasFirebaseConfig) {
+  firebaseStatus.ready = false;
+  firebaseStatus.reason = 'missing-config';
+  firebaseStatus.message = 'Faltan variables EXPO_PUBLIC_FIREBASE_* en este build.';
+  console.warn('[firebaseClient] Missing Firebase config. Auth-dependent features are disabled.');
 }
+
 try {
   if (firestore && typeof firestore === 'function') {
     const fs = firestore();
@@ -79,4 +96,4 @@ try {
 } catch {
 }
 
-export { app, auth, database, firestore, storage };
+export { app, auth, database, firestore, storage, firebaseStatus };

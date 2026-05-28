@@ -73,7 +73,7 @@ export default function PantallaDetalleInventario({ route, navigation }) {
   const item = route?.params?.item;
   const itemId = item?.id || item?.key || item?._id;
 
-  const categorias = useMemo(() => ['Lácteos', 'Carnes', 'Frutas', 'Verduras', 'Granos', 'Bebidas'], []);
+  const categorias = useMemo(() => ['Lácteos', 'Huevos', 'Carnes', 'Frutas', 'Verduras', 'Granos', 'Bebidas'], []);
 
   const [nombre, setNombre] = useState(item?.nombre || '');
   const [categoria, setCategoria] = useState(item?.categoria || '');
@@ -148,7 +148,12 @@ export default function PantallaDetalleInventario({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.heroCard}>
         <View style={styles.heroHeader}>
           <View style={styles.heroIcon}>
@@ -283,9 +288,12 @@ export default function PantallaDetalleInventario({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
     backgroundColor: tema.colors.background,
     flex: 1,
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 120,
   },
   heroCard: {
     backgroundColor: tema.colors.card,

@@ -17,10 +17,9 @@ import { useAuth } from '../contextos/AuthContext';
 import tema from '../tema';
 import PerfilService from '../servicios/servicioPerfil';
 import ServicioNotificaciones from '../servicios/ServicioNotificaciones';
+import servicioUsuarios from '../servicios/servicioUsuarios';
 
 const isWeb = Platform.OS === 'web';
-// Clave para subir la foto de perfil a ImgBB desde una variable de entorno.
-const IMGBB_API_KEY = process.env?.EXPO_PUBLIC_IMGBB_API_KEY || '';
 
 // Centro de perfil: datos personales, foto y accesos a notificaciones.
 export default function PantallaCuenta({ navigation }) {
@@ -75,32 +74,11 @@ export default function PantallaCuenta({ navigation }) {
     return ServicioNotificaciones.suscribirContadorNoLeidas(user.uid, setNoLeidas);
   }, [user?.uid]);
 
-  const subirAImgBB = useCallback(async (base64) => {
-    if (!IMGBB_API_KEY) {
-      throw new Error('Falta EXPO_PUBLIC_IMGBB_API_KEY');
-    }
-
-    const form = new FormData();
-    form.append('image', base64);
-
-    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-      method: 'POST',
-      body: form,
-    });
-
-    const data = await res.json();
-    if (data?.success) {
-      return data.data.url;
-    }
-
-    throw new Error('Error subiendo imagen');
-  }, []);
-
   const subirImagen = useCallback(async (base64) => {
     if (!user?.uid) return;
     try {
       setSubiendo(true);
-      const url = await subirAImgBB(base64);
+      const url = await servicioUsuarios.subirAvatarBase64(user.uid, base64);
       setFoto(url);
       await PerfilService.actualizarFotoPerfil(user.uid, url);
     } catch {
@@ -108,7 +86,7 @@ export default function PantallaCuenta({ navigation }) {
     } finally {
       setSubiendo(false);
     }
-  }, [subirAImgBB, user]);
+  }, [user]);
 
   const seleccionarImagenWeb = useCallback(() => {
     const input = document.createElement('input');
@@ -222,6 +200,8 @@ export default function PantallaCuenta({ navigation }) {
     <ScrollView
       style={[styles.container, { backgroundColor: tema.colors.background }]}
       contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <Image source={require('../assets/imagen_2026-03-24_122344194.jpg')} style={styles.headerImage} />
 
